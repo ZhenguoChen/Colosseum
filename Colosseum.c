@@ -516,7 +516,6 @@ void display()
 
 	//  Flat or smooth shading
 	glShadeModel(smooth ? GL_SMOOTH : GL_FLAT);
-
 	//  Light switch
 	if (light)
 	{
@@ -563,6 +562,20 @@ void display()
 	else
 	glDisable(GL_LIGHTING);
 
+	/*
+	GLuint fogMode[]={GL_EXP, GL_EXP2, GL_LINEAR};
+	GLfloat fogColor[4]={0.3, 0.6, 0.6, 1.0};
+	GLfloat density=1.0;
+	
+	glFogi(GL_FOG_MODE, fogMode[0]);
+	glFogfv(GL_FOG_COLOR, fogColor);
+	glFogf(GL_FOG_DENSITY, density);
+	glHint(GL_FOG_HINT, GL_DONT_CARE);
+	glFogf(GL_FOG_START, 50.0);	//start depth
+	glFogf(GL_FOG_END, 400.0);	//end depth
+	glEnable(GL_FOG);
+	*/
+
 	//  Draw scene
 	Colosseum();
 
@@ -590,7 +603,7 @@ void display()
 
 	//  Display parameters
 	glWindowPos2i(5,5);
-	Print("Angle=%d,%d  Dim=%.1f FOV=%d Projection=%s Light=%s",th,ph,dim,fov,mode?"Perpective":"Orthogonal",light?"On":"Off");
+	Print("Angle=%d,%d  Person Angle=%d,%d FOV=%d Projection=%s Light=%s",th,ph,P_th,P_ph,fov,mode?"Perpective":"Orthogonal",light?"On":"Off");
 	if (light)
 	{
 		glWindowPos2i(5,45);
@@ -729,7 +742,7 @@ int main(int argc,char* argv[])
 	//limit the number of flash happen in a period of time
 	int flashtime=0;
 	double lasttime=0;	//flash last time
-	double intervals[]={0.5, 0.1, 0.5, 0.1, 1.0, 2.0, 10};
+	double intervals[]={0.05, 1.0, 5.0, 2.0, 8.0, 1.0, 6.0, 0.05};
 	while(run)
 	{
 		//elaspsed time in seconds
@@ -764,9 +777,9 @@ int main(int argc,char* argv[])
 		{
 			inf=1-inf;
 			showflash=1-showflash;
-			flashtime=(flashtime+1)%7;
+			flashtime=(flashtime+1)%8;
 			lasttime=t;
-			flashposition=(flashposition+60)%360;
+			flashposition=(flashposition-30)%360;
 		}
 		//display
 		display();
