@@ -50,6 +50,7 @@ int diffuse   = 100;  // Diffuse intensity (%)
 int specular  =   0;  // Specular intensity (%)
 int shininess =   0;  // Shininess (power of two)
 float shiny   =   1;  // Shininess (value)
+float EXP     =   0;
 int inf=1;
 int zh        =  90;  // Light azimuth
 float ylight  =   2.0;  // Elevation of light
@@ -67,6 +68,10 @@ extern int P_ph;
 extern double P_x;
 extern double P_y;
 extern double P_z;
+extern double P_Dir_x;
+extern double P_Dir_y;
+extern double P_Dir_z;
+
 /* 
  *  Draw sky box
  */
@@ -75,60 +80,87 @@ static void Sky(double D)
 	//  Set specular color to white
 	float white[] = {1,1,1,1};
 	float black[] = {0,0,0,1};
+	int num=160;
+	float mul=1.0/num;
+	int i, j;
 	glMaterialf(GL_FRONT_AND_BACK,GL_SHININESS,shiny);
 	glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,white);
 	glMaterialfv(GL_FRONT_AND_BACK,GL_EMISSION,black);
+	glPushMatrix();
+	glRotated(45, 0, 1, 0);
 	glEnable(GL_TEXTURE_2D);
 	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
 	//  Sides
-	if(inf==1)
-		glColor3f(0,0,1);
+//	if(inf==1)
+//		glColor3f(0,0,1);
+//	else
+//		glColor3f(46/255.0,46/255.0,46/255.0);
 	glBindTexture(GL_TEXTURE_2D,sky[0]);
 	glBegin(GL_QUADS);
 	glNormal3d(0, 0, 1);
-	glTexCoord2f(0.00,0.39); glVertex3f(-D,Sin(-5),-D);
-	glTexCoord2f(0.25,0.39); glVertex3f(+D,Sin(-5),-D);
-	glTexCoord2f(0.25,0.6); glVertex3f(+D,+D/2,-D);
-	glTexCoord2f(0.00,0.6); glVertex3f(-D,+D/2,-D);
+	for(i=0; i<num; i++)
+                for(j=0; j<num; j++){
+                glTexCoord2f(0.25*mul*(i+0),2/9.0*mul*(j+0)+0.43); glVertex3f(-D+2*D*mul*(i+0),Sin(-5)+D*mul*(j+0)*2/3,-D);
+                glTexCoord2f(0.25*mul*(i+1),2/9.0*mul*(j+0)+0.43); glVertex3f(-D+2*D*mul*(i+1),Sin(-5)+D*mul*(j+0)*2/3,-D);
+                glTexCoord2f(0.25*mul*(i+1),2/9.0*mul*(j+1)+0.43); glVertex3f(-D+2*D*mul*(i+1),Sin(-5)+D*mul*(j+1)*2/3,-D);
+                glTexCoord2f(0.25*mul*(i+0),2/9.0*mul*(j+1)+0.43); glVertex3f(-D+2*D*mul*(i+0),Sin(-5)+D*mul*(j+1)*2/3,-D);
+        }
 
-	glNormal3d(-1, 0, 0);
-	glTexCoord2f(0.25,0.39); glVertex3f(+D,Sin(-5),-D);
-	glTexCoord2f(0.50,0.39); glVertex3f(+D,Sin(-5),+D);
-	glTexCoord2f(0.50,0.6); glVertex3f(+D,+D/2,+D);
-	glTexCoord2f(0.25,0.6); glVertex3f(+D,+D/2,-D);
+        glNormal3d(1, 0, 0);
+        for(i=0; i<num; i++)
+                for(j=0; j<num; j++){
+                glTexCoord2f(0.25*mul*(i+0)+0.25,2/9.0*mul*(j+0)+0.43); glVertex3f(+D,Sin(-5)+D*mul*(j+0)*2/3,-D+2*D*mul*(i+0));
+                glTexCoord2f(0.25*mul*(i+1)+0.25,2/9.0*mul*(j+0)+0.43); glVertex3f(+D,Sin(-5)+D*mul*(j+0)*2/3,-D+2*D*mul*(i+1));
+                glTexCoord2f(0.25*mul*(i+1)+0.25,2/9.0*mul*(j+1)+0.43); glVertex3f(+D,Sin(-5)+D*mul*(j+1)*2/3,-D+2*D*mul*(i+1));
+                glTexCoord2f(0.25*mul*(i+0)+0.25,2/9.0*mul*(j+1)+0.43); glVertex3f(+D,Sin(-5)+D*mul*(j+1)*2/3,-D+2*D*mul*(i+0));
+        }
 
-	glNormal3d(0, 0, -1);
-	glTexCoord2f(0.50,0.39); glVertex3f(+D,Sin(-5),+D);
-	glTexCoord2f(0.75,0.39); glVertex3f(-D,Sin(-5),+D);
-	glTexCoord2f(0.75,0.6); glVertex3f(-D,+D/2,+D);
-	glTexCoord2f(0.50,0.6); glVertex3f(+D,+D/2,+D);
+        glNormal3d(0, 0, -1);
+        for(i=0; i<num; i++)
+                for(j=0; j<num; j++){
+                glTexCoord2f(0.25*mul*(i+0)+0.50,2/9.0*mul*(j+0)+0.43); glVertex3f(+D-2*D*mul*(i+0),Sin(-5)+D*mul*(j+0)*2/3,+D);
+                glTexCoord2f(0.25*mul*(i+1)+0.50,2/9.0*mul*(j+0)+0.43); glVertex3f(+D-2*D*mul*(i+1),Sin(-5)+D*mul*(j+0)*2/3,+D);
+                glTexCoord2f(0.25*mul*(i+1)+0.50,2/9.0*mul*(j+1)+0.43); glVertex3f(+D-2*D*mul*(i+1),Sin(-5)+D*mul*(j+1)*2/3,+D);
+                glTexCoord2f(0.25*mul*(i+0)+0.50,2/9.0*mul*(j+1)+0.43); glVertex3f(+D-2*D*mul*(i+0),Sin(-5)+D*mul*(j+1)*2/3,+D);
+        }
 
-	glNormal3d(-1, 0, 0);
-	glTexCoord2f(0.75,0.39); glVertex3f(-D,Sin(-5),+D);
-	glTexCoord2f(1.00,0.39); glVertex3f(-D,Sin(-5),-D);
-	glTexCoord2f(1.00,0.6); glVertex3f(-D,+D/2,-D);
-	glTexCoord2f(0.75,0.6); glVertex3f(-D,+D/2,+D);
+        glNormal3d(-1, 0, 0);
+        for(i=0; i<num; i++)
+                for(j=0; j<num; j++){
+                glTexCoord2f(0.25*mul*(i+0)+0.75,2/9.0*mul*(j+0)+0.43); glVertex3f(-D,Sin(-5)+D*mul*(j+0)*2/3,+D-2*D*mul*(i+0));
+                glTexCoord2f(0.25*mul*(i+1)+0.75,2/9.0*mul*(j+0)+0.43); glVertex3f(-D,Sin(-5)+D*mul*(j+0)*2/3,+D-2*D*mul*(i+1));
+                glTexCoord2f(0.25*mul*(i+1)+0.75,2/9.0*mul*(j+1)+0.43); glVertex3f(-D,Sin(-5)+D*mul*(j+1)*2/3,+D-2*D*mul*(i+1));
+                glTexCoord2f(0.25*mul*(i+0)+0.75,2/9.0*mul*(j+1)+0.43); glVertex3f(-D,Sin(-5)+D*mul*(j+1)*2/3,+D-2*D*mul*(i+0));
+        }
 	glEnd();
 
 	//  Top and bottom	
-	glBindTexture(GL_TEXTURE_2D,sky[0]);
 	glBegin(GL_QUADS);
 	glNormal3d(0, -1, 0);
-	glTexCoord2f(0.25,0.7); glVertex3f(+D,+D/2,-D);
-	glTexCoord2f(0.5,0.7); glVertex3f(+D,+D/2,+D);
-	glTexCoord2f(0.5,1); glVertex3f(-D,+D/2,+D);
-	glTexCoord2f(0.25,1); glVertex3f(-D,+D/2,-D);
+	for(i=0; i<num; i++)
+		for(j=0; j<num; j++){
+		glTexCoord2f(0.24*mul*(i+0)+0.25,0.34*mul*(j+0)+0.65); glVertex3f(+D-2*D*mul*(j+0),Sin(-5)+D*2/3,-D+2*D*mul*(i+0));
+                glTexCoord2f(0.24*mul*(i+1)+0.25,0.34*mul*(j+0)+0.65); glVertex3f(+D-2*D*mul*(j+0),Sin(-5)+D*2/3,-D+2*D*mul*(i+1));
+                glTexCoord2f(0.24*mul*(i+1)+0.25,0.34*mul*(j+1)+0.65); glVertex3f(+D-2*D*mul*(j+1),Sin(-5)+D*2/3,-D+2*D*mul*(i+1));
+                glTexCoord2f(0.24*mul*(i+0)+0.25,0.34*mul*(j+1)+0.65); glVertex3f(+D-2*D*mul*(j+1),Sin(-5)+D*2/3,-D+2*D*mul*(i+0));
+	}
+	glEnd();
 
+        glBegin(GL_QUADS);
 	glNormal3d(0, 1, 0);
-	glTexCoord2f(0.25,0.03); glVertex3f(-D,Sin(-5),+D);
-	glTexCoord2f(0.5 ,0.03); glVertex3f(+D,Sin(-5),+D);
-	glTexCoord2f(0.5 ,0.33); glVertex3f(+D,Sin(-5),-D);
-	glTexCoord2f(0.25,0.33); glVertex3f(-D,Sin(-5),-D);
+	for(i=0; i<num; i++)
+                for(j=0; j<num; j++){
+                glTexCoord2f(0.24*mul*(i+0)+0.25,0.33*mul*(j+0)); glVertex3f(+D-2*D*mul*(j+0),Sin(-5),-D+2*D*mul*(i+0));
+                glTexCoord2f(0.24*mul*(i+1)+0.25,0.33*mul*(j+0)); glVertex3f(+D-2*D*mul*(j+0),Sin(-5),-D+2*D*mul*(i+1));
+                glTexCoord2f(0.24*mul*(i+1)+0.25,0.33*mul*(j+1)); glVertex3f(+D-2*D*mul*(j+1),Sin(-5),-D+2*D*mul*(i+1));
+                glTexCoord2f(0.24*mul*(i+0)+0.25,0.33*mul*(j+1)); glVertex3f(+D-2*D*mul*(j+1),Sin(-5),-D+2*D*mul*(i+0));
+	}
 
 	glEnd();
 
 	glDisable(GL_TEXTURE_2D);
+	glPopMatrix();
 }
 
 
@@ -421,7 +453,7 @@ void DrawFlash(double d){
 	glPushMatrix();
 	
 	glEnable(GL_BLEND);
-	glColor4f(1, 1, 1, 0.75);
+	glColor4f(69/255.0, 139/255.0, 116/255.0, 1);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 	//glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 	glDepthMask(0);
@@ -432,11 +464,18 @@ void DrawFlash(double d){
 	glBegin(GL_QUADS);
 	glNormal3f(0,0,+1);
 	
-	glTexCoord2f(0,0); glVertex3f(-d*Sin(flashposition),+0.5,-d*Cos(flashposition));
-	glTexCoord2f(1,0); glVertex3f(+d*Sin(flashposition),+0.5,+d*Cos(flashposition));
+	d=4*d;
+	glTexCoord2f(0,0); glVertex3f(-d*Sin(flashposition),+0,-d*Cos(flashposition));
+	glTexCoord2f(1,0); glVertex3f(+d*Sin(flashposition),+0,+d*Cos(flashposition));
 	glTexCoord2f(1,1); glVertex3f(+d*Sin(flashposition),+4,+d*Cos(flashposition));
 	glTexCoord2f(0,1); glVertex3f(-d*Sin(flashposition),+4,-d*Cos(flashposition));
-
+	
+	/*int th=-55;
+	glTexCoord2f(0,0); glVertex3f(2*dim*Sin(th)-w*Cos(th),+0.5, 2*dim*Cos(th)+w*Sin(th));
+        glTexCoord2f(1,0); glVertex3f(2*dim*Sin(th)+w*Cos(th),+0.5, 2*dim*Cos(th)-w*Sin(th));
+        glTexCoord2f(1,1); glVertex3f(2*dim*Sin(th)+w*Cos(th),+4  , 2*dim*Cos(th)-w*Sin(th));
+        glTexCoord2f(0,1); glVertex3f(2*dim*Sin(th)-w*Cos(th),+4  , 2*dim*Cos(th)+w*Sin(th));
+	*/
 	glEnd();
 	glDisable(GL_BLEND);
 	glDepthMask(1);
@@ -507,12 +546,13 @@ void display()
 	//  Undo previous transformations
 	glLoadIdentity();
 	//  Perspective - set eye position
+	/*
 	double Ex = -2*dim*Sin(th)*Cos(ph);
 	double Ey = +2*dim        *Sin(ph);
 	double Ez = +2*dim*Cos(th)*Cos(ph);
+	*/
 	//gluLookAt(Ex,Ey,Ez , 0,0,0 , 0,Cos(ph),0);
 	InitFPN();
-	Sky(2.5*dim);
 
 	//  Flat or smooth shading
 	glShadeModel(smooth ? GL_SMOOTH : GL_FLAT);
@@ -525,15 +565,19 @@ void display()
 		float Specular[]  = {0.01*specular,0.01*specular,0.01*specular,1.0};
 		//  Light position
 		float Position[4];
-		if(inf==1)
+		float Direction[]={-Sin(P_th)*Cos(P_ph), Sin(P_ph), -Cos(P_th)*Cos(P_ph), 0};
+		if(showflash==0)//showflash==1 showflash
 		{
 			Position[0]=P_x;Position[1]=P_y;Position[2]=P_z;Position[3]=1.0;
 		}
 		else
 		{
 			Position[0]=P_x;Position[1]=P_y;Position[2]=P_z;Position[3]=0;
+			Direction[0]=-P_x;
+			Direction[1]=-P_y;
+			Direction[2]=-P_z;
 		}
-		float Direction[]={-P_x, -P_y, -P_z, 0};
+		//printf("direction:%f,%f,%f\n", Direction[0], Direction[1], Direction[2]);
 		//float Direction[]={Cos(Th)*Sin(Ph), Sin(Th)*Sin(Ph), -Cos(Ph), 0};
 		//  Draw light position as ball (still no lighting here)
 		glColor3f(1,1,1);
@@ -557,7 +601,10 @@ void display()
 
 		glLightfv(GL_LIGHT0,GL_SPOT_DIRECTION,Direction);
 		glLightf(GL_LIGHT0,GL_SPOT_CUTOFF,5);
-		glLightf(GL_LIGHT0,GL_SPOT_EXPONENT,0.0);
+		glLightf(GL_LIGHT0,GL_SPOT_EXPONENT,0.8);
+
+		glLightf(GL_LIGHT0,GL_QUADRATIC_ATTENUATION,3/100.0);
+		//glLightf(GL_LIGHT0,GL_LINEAR_ATTENUATION,10/100.0);
 	}
 	else
 	glDisable(GL_LIGHTING);
@@ -575,14 +622,15 @@ void display()
 	glFogf(GL_FOG_END, 400.0);	//end depth
 	glEnable(GL_FOG);
 	*/
-
+	//draw the sky box
+	Sky(5*dim);
 	//  Draw scene
 	Colosseum();
 
 	//  Draw axes - no lighting from here on
 	glDisable(GL_LIGHTING);
 	glColor3f(1,1,1);
-	if (axes)
+	if (!axes)
 	{
 		glBegin(GL_LINES);
 		glVertex3d(0.0,0.0,0.0);
@@ -672,18 +720,34 @@ int key()
 		FPN_Refresh();
 	}
 	//  Shininess level
+	/*
 	else if (keys[SDLK_n] && shininess>-1)
 		shininess -= 1;
 	else if (keys[SDLK_n] && shift && shininess<7)
 		shininess += 1;
-	else if (keys[SDLK_i]){
+	else if (keys[SDLK_i])
 		printf("i pressed\n");
-		inf=1-inf;
+	*/
+	 //  Increase/decrease asimuth
+	else if (keys[SDLK_RIGHT])
+		th += 5;
+	else if (keys[SDLK_LEFT])
+		th -= 5;
+	//  Increase/decrease elevation
+	else if (keys[SDLK_UP])
+	{
+		P_ph += 5;
+		FPN_Refresh();
+	}
+	else if (keys[SDLK_DOWN])
+	{
+		P_ph -= 5;
+		FPN_Refresh();
 	}
 	//  Translate shininess power to value (-1 => 0)
 	shiny = shininess<0 ? 0 : pow(2.0,shininess);
 	//  Reproject
-	Project(mode?fov:0,asp,dim);
+	Project(fov,asp,dim);
 	//  Animate if requested
 	return 1;
 }
@@ -727,7 +791,7 @@ int main(int argc,char* argv[])
 	texture[1]=LoadTexBMP("stone3.bmp");
 	texture[2]=LoadTexBMP("brickSingle2.bmp");
 	texture[3]=LoadTexBMP("skybox.bmp");
-	sky[0]=LoadTexBMP("skybox.bmp");
+	sky[0]=LoadTexBMP("skybox2.bmp");
 	sky[1]=LoadTexBMP("sky1.bmp");
 	flash[0]=LoadTexBMP("flash3.bmp");
 	
@@ -743,6 +807,7 @@ int main(int argc,char* argv[])
 	int flashtime=0;
 	double lasttime=0;	//flash last time
 	double intervals[]={0.05, 1.0, 5.0, 2.0, 8.0, 1.0, 6.0, 0.05};
+
 	while(run)
 	{
 		//elaspsed time in seconds
