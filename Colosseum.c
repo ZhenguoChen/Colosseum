@@ -61,6 +61,8 @@ unsigned int sky[2];
 unsigned int flash[1];	//the texture of flash
 int showflash=0;	//show flash or not
 int flashposition=35;
+int showfog=0;
+GLfloat density=0.0;	// the density of the fog
 
 int Ph=0, Th=0;		// angle of light
 
@@ -197,6 +199,7 @@ static void Vertex(double th,double ph)
  *     at (x,y,z)
  *     radius (r)
  */
+/*
 static void ball(double x,double y,double z,double r)
 {
 	int th,ph;
@@ -226,6 +229,7 @@ static void ball(double x,double y,double z,double r)
 	//  Undo transofrmations
 	glPopMatrix();
 }
+*/
 
 /*
  * draw the ground
@@ -322,7 +326,7 @@ static void Floor(double x,double y,double z,
 {
 	int th;
 	int d=5;
-	float rep=2;
+	//float rep=2;
 	int num=r/0.25, i;
 
 	//  Save transformation
@@ -685,7 +689,7 @@ static void Colosseum_FPN()
         Fence(0, 0, 0, 1.0, 0.9, 0.05, 0.4, 0.3, 1.0);
 
         //draw flash
-        if(showflash==1)
+        if(showflash==1&&mode!=2)
                 DrawFlash(5);
 }
 
@@ -709,7 +713,6 @@ void display()
 		double Ez = +2*dim*Cos(th)*Cos(ph);
 	
 		gluLookAt(Ex,Ey,Ez , 0,0,0 , 0,Cos(ph),0);
-		showflash=0;
 	}
 	else{
 		InitFPN();
@@ -765,26 +768,28 @@ void display()
 		glLightf(GL_LIGHT0,GL_SPOT_CUTOFF,4);
 		glLightf(GL_LIGHT0,GL_SPOT_EXPONENT,0.8);
 
-		glLightf(GL_LIGHT0,GL_QUADRATIC_ATTENUATION,3/100.0);
+		glLightf(GL_LIGHT0,GL_QUADRATIC_ATTENUATION,10/100.0);
 		glLightf(GL_LIGHT0,GL_LINEAR_ATTENUATION,10/100.0);
 		glLightf(GL_LIGHT0,GL_CONSTANT_ATTENUATION, 10/100.0);
 	}
 	else
 	glDisable(GL_LIGHTING);
 
-	/*
-	GLuint fogMode[]={GL_EXP, GL_EXP2, GL_LINEAR};
-	GLfloat fogColor[4]={0.3, 0.6, 0.6, 1.0};
-	GLfloat density=1.0;
-	
-	glFogi(GL_FOG_MODE, fogMode[0]);
-	glFogfv(GL_FOG_COLOR, fogColor);
-	glFogf(GL_FOG_DENSITY, density);
-	glHint(GL_FOG_HINT, GL_DONT_CARE);
-	glFogf(GL_FOG_START, 50.0);	//start depth
-	glFogf(GL_FOG_END, 400.0);	//end depth
-	glEnable(GL_FOG);
-	*/
+	if(showfog==1){
+		GLuint fogMode[]={GL_EXP, GL_EXP2, GL_LINEAR};
+		GLfloat fogColor[4]={1.0, 1.0, 1.0, 1.0};
+		
+		glFogi(GL_FOG_MODE, fogMode[0]);
+		glFogfv(GL_FOG_COLOR, fogColor);
+		if(showflash==1)
+			glFogf(GL_FOG_DENSITY, 0.02);
+		else
+			glFogf(GL_FOG_DENSITY, density);
+		glHint(GL_FOG_HINT, GL_DONT_CARE);
+		glFogf(GL_FOG_START, 5.0);	//start depth
+		glFogf(GL_FOG_END, 10.0);	//end depth
+		glEnable(GL_FOG);
+	}
 	//draw the sky box
 	Sky(5*dim);
 	//  Draw scene
@@ -795,6 +800,7 @@ void display()
 
 	//  Draw axes - no lighting from here on
 	glDisable(GL_LIGHTING);
+	glDisable(GL_FOG);
 	glColor3f(1,1,1);
 	if (!axes)
 	{
@@ -999,6 +1005,14 @@ int main(int argc,char* argv[])
 			lasttime=t;
 			flashposition=(flashposition-30)%360;
 		}
+		if(t>20.0&&density<0.1){
+			showfog=1;
+			density+=0.001;
+		}
+		if(t>30&&density==0.02)
+			density+=0.001;
+		if(t>40&&density==0.03)
+			density+=0.001;
 		//display
 		display();
 		//slow down display rate to about 100 fps by sleeping 5ms
