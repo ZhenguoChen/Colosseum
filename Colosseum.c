@@ -23,15 +23,17 @@
 
  * Features:
  * 1. Use SDL to add sound to the program
+ * 2. Have flash and when there is thunder there is flash.
+ * 3. You can move the flashlight.
+ * 4. The sky box can be light up with flashlight.
  */
 #include<SDL/SDL.h>
 #include<SDL/SDL_mixer.h>
 #include "CSCIx229.h"
 
 int axes=1;       //  Display axes
-int mode=1;       //  Projection mode
 int move=1;       //  Move light
-int d=10;
+int d=20;
 int th=-55;         //  Azimuth of view angle
 int ph=15;         //  Elevation of view angle
 int fov=55;       //  Field of view (for perspective)
@@ -42,7 +44,6 @@ double dim=3.0;   //  Size of world
 int one       =   1;  // Unit value
 int distance  =   5;  // Light distance
 int inc       =  10;  // Ball increment
-int smooth    =   1;  // Smooth/Flat shading
 int local     =   0;  // Local Viewer Model
 int emission  =   0;  // Emission intensity (%)
 int ambient   =  30;  // Ambient intensity (%)
@@ -71,6 +72,21 @@ extern double P_z;
 extern double P_Dir_x;
 extern double P_Dir_y;
 extern double P_Dir_z;
+
+// Do shadow mappiing
+unsigned int framebuf=0;
+double Svec[4];
+double Tvec[4];
+double Rvec[4];
+double Qvec[4];
+int    Width;	//window width
+int    Height;	//window height
+int shadowdim;	//size of shadow map texture
+
+//mode=1, you can see the whole scene from different angle
+//mode=0, what from the first person navigation perspective, but the scene is small
+//mode=2, draw a bigger Colosseum for first person navigation
+int mode=0;
 
 /* 
  *  Draw sky box
@@ -220,6 +236,7 @@ static void Ground(double x,double y,double z,
 	int th, ph;
 	int d=5;
 	float rep=5.0;
+	int num=r/0.05, i;
 
 	//  Save transformation
 	glPushMatrix();
@@ -240,8 +257,24 @@ static void Ground(double x,double y,double z,
 	for (th=0;th<=360;th+=d)
 	{
 		glTexCoord2f(rep/2*Cos(th)+0.5, rep/2*Sin(th)+0.5);
-		glVertex3f(Cos(th), 0, Sin(th));
+		glVertex3f(Cos(th)*r/num, 0, Sin(th)*r/num);
 		//Vertex(th, 0);
+	}
+	glEnd();
+	//draw rings
+	glBegin(GL_QUAD_STRIP);
+	for (i=0; i<num-1; i++){
+		// as the radius of the rings become larger, the texture would become sparse and also affect the lighting. So, change d to fix this.
+		d=d-(num/10)>0?d-(num/10):1;
+		for (th=0;th<=360;th+=d)
+        	{
+        	        //glTexCoord2f(th%(2*d)?0.0:1.0, 0.0);
+        	        glTexCoord2f(th%(2*d)?10.0/num*(i+0):10.0/num*(i+1), 10.0/num*(i+0));
+                	glVertex3d((i+2)*Sin(th)/num, 0, (i+2)*Cos(th)/num);
+                	//glTexCoord2f(th%(2*d)?0.0:1.0, 1);
+                	glTexCoord2f(th%(2*d)?10.0/num*(i+0):10.0/num*(i+1), 10.0/num*(i+1));
+                	glVertex3d((i+1)*Sin(th)/num, 0, (i+1)*Cos(th)/num);
+        	}
 	}
 	glEnd();
 
@@ -289,7 +322,8 @@ static void Floor(double x,double y,double z,
 {
 	int th;
 	int d=5;
-	float rep=width;
+	float rep=2;
+	int num=r/0.25, i;
 
 	//  Save transformation
 	glPushMatrix();
@@ -307,6 +341,17 @@ static void Floor(double x,double y,double z,
 	//upper floor
 	glBegin(GL_QUAD_STRIP);
 	glTexCoord2f(0.5, 0.5);
+	glNormal3f(0, 1, 0);
+        for (i=width*num-1; i<num-1; i++){
+                for (th=0;th<=360;th+=d)
+                {
+                        glTexCoord2f(th%(2*d)?0.0:1.0, 0.0);
+                        glVertex3d((i+2)*Sin(th)/num, h, (i+2)*Cos(th)/num);
+                        glTexCoord2f(th%(2*d)?0.0:1.0, 1);
+                        glVertex3d((i+1)*Sin(th)/num, h, (i+1)*Cos(th)/num);
+                }
+        }
+	/*
 	for (th=0;th<=360;th+=d)
 	{
 		glTexCoord2f(th%(2*d)?0.0: rep, 0.0);	
@@ -314,6 +359,7 @@ static void Floor(double x,double y,double z,
 		glTexCoord2f(th%(2*d)?0.0: rep, rep);
 		glVertex3d(width*Sin(th), h, width*Cos(th));
 	}
+	*/
 	glEnd();
 
    	//side floor
@@ -350,11 +396,22 @@ static void Floor(double x,double y,double z,
 	glColor3f(color_r, color_g, color_b);
 	glNormal3d(0, -1, 0);
 	glBegin(GL_QUAD_STRIP);
+	for (i=width*num-1; i<num-1; i++){
+                for (th=0;th<=360;th+=d)
+                {
+                        glTexCoord2f(th%(2*d)?0.0:1.0, 0.0);
+                        glVertex3d((i+2)*Sin(th)/num, 0, (i+2)*Cos(th)/num);
+                        glTexCoord2f(th%(2*d)?0.0:1.0, 1);
+                        glVertex3d((i+1)*Sin(th)/num, 0, (i+1)*Cos(th)/num);
+                }
+        }
+	/*
 	for (th=0;th<=360;th+=d)
 	{
 		glVertex3d(Sin(th), 0, Cos(th));
 		glVertex3d(width*Sin(th), 0, width*Cos(th));
 	}
+	*/
 	glEnd();
    	//  Undo transformations
    	glPopMatrix();
@@ -380,9 +437,12 @@ static void Pillar(double x,double y,double z,
 {
 	double width=0.1;		//width of the pillar
 	double length=0.8;		//length of the pillar
+	int num=40;
+	float mul=1.0/num;
 	//  Set specular color to white
 	float white[] = {1,1,1,1};
 	float black[] = {0,0,0,1};
+	int i, j, k;
 	glMaterialf(GL_FRONT_AND_BACK,GL_SHININESS,shiny);
 	glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,white);
 	glMaterialfv(GL_FRONT_AND_BACK,GL_EMISSION,black);
@@ -402,32 +462,79 @@ static void Pillar(double x,double y,double z,
    	//  Front
    	glColor3f(205/255.0, 201/255.0, 201/255.0);
 	glNormal3f(0, 0, 1);
-   	glTexCoord2f(0,0); glVertex3f(-width, 0, width);
-   	glTexCoord2f(1,0); glVertex3f(+width, 0, width);
-   	glTexCoord2f(1,4); glVertex3f(+width,+length, width);
-   	glTexCoord2f(0,4); glVertex3f(-width,+length, width);
+	for(i=0; i<num; i++)
+		for(j=0, k=0; j<num; j++, k+=4){
+   		glTexCoord2f(mul*(i+0),mul*(k+0)); 
+		glVertex3f(-width+2*width*mul*(i+0), length*mul*(j+0), width);
+   		glTexCoord2f(mul*(i+1),mul*(k+0)); 
+		glVertex3f(-width+2*width*mul*(i+1), length*mul*(j+0), width);
+   		glTexCoord2f(mul*(i+1),mul*(k+4)); 
+		glVertex3f(-width+2*width*mul*(i+1), length*mul*(j+1), width);
+   		glTexCoord2f(mul*(i+0),mul*(k+4)); 
+		glVertex3f(-width+2*width*mul*(i+0), length*mul*(j+1), width);
+	}
    	//  Back
    	glColor3f(205/255.0, 201/255.0, 201/255.0);
 	glNormal3f( 0, 0,-1);
+	for(i=0; i<num; i++)
+                for(j=0, k=0; j<num; j++, k+=4){
+                glTexCoord2f(mul*(i+0),mul*(k+0)); 
+                glVertex3f(width-2*width*mul*(i+0), length*mul*(j+0), -width);
+                glTexCoord2f(mul*(i+1),mul*(k+0)); 
+                glVertex3f(width-2*width*mul*(i+1), length*mul*(j+0), -width);
+                glTexCoord2f(mul*(i+1),mul*(k+4)); 
+                glVertex3f(width-2*width*mul*(i+1), length*mul*(j+1), -width);
+                glTexCoord2f(mul*(i+0),mul*(k+4)); 
+                glVertex3f(width-2*width*mul*(i+0), length*mul*(j+1), -width);
+        }
+	/*
    	glTexCoord2f(0,0); glVertex3f(+width, 0,-width);
    	glTexCoord2f(1,0); glVertex3f(-width, 0,-width);
    	glTexCoord2f(1,4); glVertex3f(-width,+length,-width);
    	glTexCoord2f(0,4); glVertex3f(+width,+length,-width);
+	*/
    	//  Right
    	glColor3f(139/255.0, 115/255.0, 85/255.0);
 	glNormal3f(+1, 0, 0);
+	for(i=0; i<num; i++)
+                for(j=0, k=0; j<num; j++, k+=4){
+                glTexCoord2f(mul*(i+0),mul*(k+0)); 
+                glVertex3f(width, length*mul*(j+0), width-2*width*mul*(i+0));
+                glTexCoord2f(mul*(i+1),mul*(k+0)); 
+                glVertex3f(width, length*mul*(j+0), width-2*width*mul*(i+1));
+                glTexCoord2f(mul*(i+1),mul*(k+4)); 
+                glVertex3f(width, length*mul*(j+1), width-2*width*mul*(i+1));
+                glTexCoord2f(mul*(i+0),mul*(k+4)); 
+                glVertex3f(width, length*mul*(j+1), width-2*width*mul*(i+0));
+        }
+	/*
    	glTexCoord2f(0,0); glVertex3f(+width, 0,+width);
    	glTexCoord2f(1,0); glVertex3f(+width, 0,-width);
    	glTexCoord2f(1,4); glVertex3f(+width,+length,-width);
    	glTexCoord2f(0,4); glVertex3f(+width,+length,+width);
+	*/
    	//  Left
    	glColor3f(139/255.0, 115/255.0, 85/255.0);
 	glNormal3f(-1, 0, 0);
+	for(i=0; i<num; i++)
+                for(j=0, k=0; j<num; j++, k+=4){
+                glTexCoord2f(mul*(i+0),mul*(k+0));
+                glVertex3f(-width, length*mul*(j+0), -width+2*width*mul*(i+0));
+                glTexCoord2f(mul*(i+1),mul*(k+0));
+                glVertex3f(-width, length*mul*(j+0), -width+2*width*mul*(i+1));
+                glTexCoord2f(mul*(i+1),mul*(k+4));
+                glVertex3f(-width, length*mul*(j+1), -width+2*width*mul*(i+1));
+                glTexCoord2f(mul*(i+0),mul*(k+4));
+                glVertex3f(-width, length*mul*(j+1), -width+2*width*mul*(i+0));
+        }
+	/*
    	glTexCoord2f(0,0); glVertex3f(-width, 0,-width);
    	glTexCoord2f(1,0); glVertex3f(-width, 0,+width);
    	glTexCoord2f(1,4); glVertex3f(-width,+length,+width);
    	glTexCoord2f(0,4); glVertex3f(-width,+length,-width);
+	*/
    	//  Top
+	/*
    	glColor3f(0,1,1);
 	glNormal3f( 0,+1, 0);
    	glVertex3f(-width,+length,+width);
@@ -441,6 +548,7 @@ static void Pillar(double x,double y,double z,
       	glVertex3f(+width, 0,-width);
       	glVertex3f(+width, 0,+width);
       	glVertex3f(-width, 0,+width);
+	*/
    	//  End
    	glEnd();
 	glDisable(GL_TEXTURE_2D);
@@ -464,11 +572,11 @@ void DrawFlash(double d){
 	glBegin(GL_QUADS);
 	glNormal3f(0,0,+1);
 	
-	d=4*d;
+	d=3*d;
 	glTexCoord2f(0,0); glVertex3f(-d*Sin(flashposition),+0,-d*Cos(flashposition));
 	glTexCoord2f(1,0); glVertex3f(+d*Sin(flashposition),+0,+d*Cos(flashposition));
-	glTexCoord2f(1,1); glVertex3f(+d*Sin(flashposition),+4,+d*Cos(flashposition));
-	glTexCoord2f(0,1); glVertex3f(-d*Sin(flashposition),+4,-d*Cos(flashposition));
+	glTexCoord2f(1,1); glVertex3f(+d*Sin(flashposition),+6,+d*Cos(flashposition));
+	glTexCoord2f(0,1); glVertex3f(-d*Sin(flashposition),+6,-d*Cos(flashposition));
 	
 	/*int th=-55;
 	glTexCoord2f(0,0); glVertex3f(2*dim*Sin(th)-w*Cos(th),+0.5, 2*dim*Cos(th)+w*Sin(th));
@@ -490,6 +598,7 @@ static void Colosseum()
 {
 	int th=0;
 	double dx, dy, dz;
+	int d=10;
 	dx=dy=dz=0.5;
 
 	//draw ground
@@ -528,9 +637,57 @@ static void Colosseum()
 
 	//draw flash
 	if(showflash==1)
-		DrawFlash(2.5);	
+		DrawFlash(5);	
 }
 
+/*
+ * draw a bigger colosseum for first person navigation
+ */
+static void Colosseum_FPN()
+{
+        int th=0;
+        double dx, dy, dz;
+        int d=20;
+        dx=dy=dz=1;
+
+        //draw ground
+        Ground(0, 0, 0, 3.0);
+
+        //draw pillars
+        //first floor pillars
+        for(th=0; th<360; th+=d)
+        {
+                Pillar(2.9*Sin(th), 0 , 2.9*Cos(th), dx, dy, dz, th);
+                Pillar(2.9*Sin(th)*0.6, 0 , 2.9*Cos(th)*0.6, dx, dy, dz, th);
+        }
+
+        //draw second floor pillars
+        for(th=0; th<360; th+=d)
+        {
+                Pillar(2.9*Sin(th), 0.95 , 2.9*Cos(th), dx, dy, dz, th);
+                Pillar(2.9*Sin(th)*0.8, 0.95 , 2.9*Cos(th)*0.8, dx, dy, dz, th);
+        }
+
+        //draw third floor pillars
+        for(th=0; th<360; th+=d)
+        {
+                Pillar(2.9*Sin(th), 1.9 , 2.9*Cos(th), dx, dy, dz, th);
+        }
+
+        //draw second floor
+        Floor(0, 0.8, 0, 3.0, 0.5, 0.05, 139/255.0, 131/255.0, 134/255.0);
+        //draw third floor
+        Floor(0, 1.75, 0, 3.0, 0.7, 0.05, 122/255.0, 122/255.0, 122/255.0);
+        //top
+        Floor(0, 2.7, 0, 3.0, 0.9, 0.05, 171/255.0, 171/255.0, 171/255.0);
+
+        //draw fence
+        Fence(0, 0, 0, 1.0, 0.9, 0.05, 0.4, 0.3, 1.0);
+
+        //draw flash
+        if(showflash==1)
+                DrawFlash(5);
+}
 
 /*
  *  OpenGL (GLUT) calls this routine to display the scene
@@ -546,16 +703,20 @@ void display()
 	//  Undo previous transformations
 	glLoadIdentity();
 	//  Perspective - set eye position
-	/*
-	double Ex = -2*dim*Sin(th)*Cos(ph);
-	double Ey = +2*dim        *Sin(ph);
-	double Ez = +2*dim*Cos(th)*Cos(ph);
-	*/
-	//gluLookAt(Ex,Ey,Ez , 0,0,0 , 0,Cos(ph),0);
-	InitFPN();
+	if(mode==1){
+		double Ex = -2*dim*Sin(th)*Cos(ph);
+		double Ey = +2*dim        *Sin(ph);
+		double Ez = +2*dim*Cos(th)*Cos(ph);
+	
+		gluLookAt(Ex,Ey,Ez , 0,0,0 , 0,Cos(ph),0);
+		showflash=0;
+	}
+	else{
+		InitFPN();
+	}
 
 	//  Flat or smooth shading
-	glShadeModel(smooth ? GL_SMOOTH : GL_FLAT);
+	glShadeModel(GL_SMOOTH);
 	//  Light switch
 	if (light)
 	{
@@ -568,20 +729,21 @@ void display()
 		float Direction[]={-Sin(P_th)*Cos(P_ph), Sin(P_ph), -Cos(P_th)*Cos(P_ph), 0};
 		if(showflash==0)//showflash==1 showflash
 		{
-			Position[0]=P_x;Position[1]=P_y;Position[2]=P_z;Position[3]=1.0;
+			//Position[0]=P_x;Position[1]=P_y;Position[2]=P_z;Position[3]=1.0;
+			Position[0]=P_x; Position[1]=P_y; Position[2]=P_z; Position[3]=1.0;
 		}
 		else
 		{
-			Position[0]=P_x;Position[1]=P_y;Position[2]=P_z;Position[3]=0;
-			Direction[0]=-P_x;
-			Direction[1]=-P_y;
-			Direction[2]=-P_z;
+			Position[0]=6;Position[1]=0.35;Position[2]=6;Position[3]=0;
+			Direction[0]=-6;
+			Direction[1]=-0.35;
+			Direction[2]=-6;
 		}
 		//printf("direction:%f,%f,%f\n", Direction[0], Direction[1], Direction[2]);
 		//float Direction[]={Cos(Th)*Sin(Ph), Sin(Th)*Sin(Ph), -Cos(Ph), 0};
 		//  Draw light position as ball (still no lighting here)
 		glColor3f(1,1,1);
-		ball(Position[0],Position[1],Position[2] , 0.1);
+		//ball(Position[0],Position[1],Position[2] , 0.1);
 		//  OpenGL should normalize normal vectors
 		glEnable(GL_NORMALIZE);
 		//  Enable lighting
@@ -600,11 +762,12 @@ void display()
 		glLightfv(GL_LIGHT0,GL_POSITION,Position);
 
 		glLightfv(GL_LIGHT0,GL_SPOT_DIRECTION,Direction);
-		glLightf(GL_LIGHT0,GL_SPOT_CUTOFF,5);
+		glLightf(GL_LIGHT0,GL_SPOT_CUTOFF,4);
 		glLightf(GL_LIGHT0,GL_SPOT_EXPONENT,0.8);
 
 		glLightf(GL_LIGHT0,GL_QUADRATIC_ATTENUATION,3/100.0);
-		//glLightf(GL_LIGHT0,GL_LINEAR_ATTENUATION,10/100.0);
+		glLightf(GL_LIGHT0,GL_LINEAR_ATTENUATION,10/100.0);
+		glLightf(GL_LIGHT0,GL_CONSTANT_ATTENUATION, 10/100.0);
 	}
 	else
 	glDisable(GL_LIGHTING);
@@ -625,7 +788,10 @@ void display()
 	//draw the sky box
 	Sky(5*dim);
 	//  Draw scene
-	Colosseum();
+	if(mode==2)
+		Colosseum_FPN();
+	else
+		Colosseum();
 
 	//  Draw axes - no lighting from here on
 	glDisable(GL_LIGHTING);
@@ -649,17 +815,6 @@ void display()
 		Print("Z");
 	}
 
-	//  Display parameters
-	glWindowPos2i(5,5);
-	Print("Angle=%d,%d  Person Angle=%d,%d FOV=%d Projection=%s Light=%s",th,ph,P_th,P_ph,fov,mode?"Perpective":"Orthogonal",light?"On":"Off");
-	if (light)
-	{
-		glWindowPos2i(5,45);
-		Print("Model=%s LocalViewer=%s Distance=%d Elevation=%.1f",smooth?"Smooth":"Flat",local?"On":"Off",distance,ylight);
-		glWindowPos2i(5,25);
-		Print("Ambient=%d  Diffuse=%d Specular=%d Emission=%d Shininess=%.0f",ambient,diffuse,specular,emission,shiny);
-	}
-
 	//  Render the scene and make it visible
 	ErrCheck("display");
 	glFlush();
@@ -671,7 +826,7 @@ void display()
 int key()
 {
 	Uint8* keys=SDL_GetKeyState(NULL);
-	int shift=SDL_GetModState()&KMOD_SHIFT;
+	//int shift=SDL_GetModState()&KMOD_SHIFT;
 	//  Exit on ESC
 	if (keys[SDLK_ESCAPE])
 		exit(0);
@@ -684,17 +839,13 @@ int key()
 	//  Toggle lighting
 	else if (keys[SDLK_l])
 		light = 1-light;
-	//  Switch projection mode
-	else if (keys[SDLK_p])
-		mode = 1-mode;
-	//  Toggle light movement
-	else if (keys[SDLK_m])
-		move = 1-move;
 	//  Move light
 	else if (keys[SDLK_LEFTBRACKET])
 		zh += 1;
 	else if (keys[SDLK_RIGHTBRACKET])
 		zh -= 1;
+	else if (keys[SDLK_m])
+		mode=(mode+1)%3;
 	//  Change field of view angle
 	else if (keys[SDLK_KP_MINUS]||keys[SDLK_MINUS])
 		fov--;
@@ -711,12 +862,12 @@ int key()
 	}
 	else if(keys[SDLK_a])
 	{
-		P_th+=5;
+		P_th+=3;
 		FPN_Refresh();
 	}
 	else if(keys[SDLK_d])
 	{
-		P_th-=5;
+		P_th-=3;
 		FPN_Refresh();
 	}
 	//  Shininess level
@@ -736,11 +887,13 @@ int key()
 	//  Increase/decrease elevation
 	else if (keys[SDLK_UP])
 	{
+		ph+=3;
 		P_ph += 5;
 		FPN_Refresh();
 	}
 	else if (keys[SDLK_DOWN])
 	{
+		ph-=3;
 		P_ph -= 5;
 		FPN_Refresh();
 	}
