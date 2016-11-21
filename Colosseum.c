@@ -87,7 +87,7 @@ int    Height;	//window height
 int shadowdim;	//size of shadow map texture
 int shader;	//shader
 int createshadow=1;
-int shadow=1;
+int shadow=0;
 
 //mode=1, you can see the whole scene from different angle
 //mode=0, what from the first person navigation perspective, but the scene is small
@@ -196,41 +196,6 @@ static void Vertex(double th,double ph)
 	double z = Cos(th)*Cos(ph);
 	
 	glVertex3d(x,y,z);
-}
-
-/*
- *  Draw a ball
- *     at (x,y,z)
- *     radius (r)
- */
-static void ball(double x,double y,double z,double r)
-{
-   int th,ph;
-   float yellow[] = {1.0,1.0,0.0,1.0};
-   float Emission[]  = {0.0,0.0,0.01*emission,1.0};
-   //  Save transformation
-   glPushMatrix();
-   //  Offset, scale and rotate
-   glTranslated(x,y,z);
-   glScaled(r,r,r);
-   //  White ball
-   glColor3f(1,1,1);
-   glMaterialf(GL_FRONT,GL_SHININESS,shiny);
-   glMaterialfv(GL_FRONT,GL_SPECULAR,yellow);
-   glMaterialfv(GL_FRONT,GL_EMISSION,Emission);
-   //  Bands of latitude
-   for (ph=-90;ph<90;ph+=inc)
-   {
-      glBegin(GL_QUAD_STRIP);
-      for (th=0;th<=360;th+=2*inc)
-      {
-         Vertex(th,ph);
-         Vertex(th,ph+inc);
-      }
-      glEnd();
-   }
-   //  Undo transofrmations
-   glPopMatrix();
 }
 
 /*
@@ -578,9 +543,7 @@ static void Colosseum()
 
 	//draw flash, when create shadow, do not display this
 	if(showflash==1&&mode==0){
-		glUseProgram(0);
 		DrawFlash(5);
-		glUseProgram(shader);
 	}
 }
 
@@ -635,7 +598,6 @@ static void Colosseum_FPN()
 void display()
 {
 	int id;
-	const double len=2.0;  //  Length of axes
 	//  Erase the window and the depth buffer
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 	//  Enable Z-buffering in OpenGL
@@ -659,7 +621,7 @@ void display()
 	/*
 	 * start drawing shadow
 	 */
-	if (showflash==1&&shadow){
+	if (showflash==1&&shadow==1){
 		glUseProgram(shader);
 		id=glGetUniformLocation(shader, "tex");
 		if(id>=0)glUniform1i(id,0);
@@ -699,11 +661,9 @@ void display()
 			Direction[1]=-0.35;
 			Direction[2]=-6;
 		}
-		//printf("direction:%f,%f,%f\n", Direction[0], Direction[1], Direction[2]);
-		//float Direction[]={Cos(Th)*Sin(Ph), Sin(Th)*Sin(Ph), -Cos(Ph), 0};
-		//  Draw light position as ball (still no lighting here)
+
 		glColor3f(1,1,1);
-		//ball(Position[0],Position[1],Position[2] , 0.1);
+
 		//  OpenGL should normalize normal vectors
 		glEnable(GL_NORMALIZE);
 		//  Enable lighting
@@ -749,37 +709,20 @@ void display()
 	}
 	//draw the sky box
 	Sky(5*dim);
-	ball(Lpos[0], Lpos[1], Lpos[2], 0.01);
+
 	//  Draw scene
 	if(mode==2)
 		Colosseum_FPN();
 	else
 		Colosseum();
 
-	if(showflash==1&&shadow)
+	if(showflash==1&&shadow==1)
 		glUseProgram(0);
-	//  Draw axes - no lighting from here on
+
 	glDisable(GL_LIGHTING);
 	glDisable(GL_FOG);
 	glColor3f(1,1,1);
-	if (!axes)
-	{
-		glBegin(GL_LINES);
-		glVertex3d(0.0,0.0,0.0);
-		glVertex3d(len,0.0,0.0);
-		glVertex3d(0.0,0.0,0.0);
-		glVertex3d(0.0,len,0.0);
-		glVertex3d(0.0,0.0,0.0);
-		glVertex3d(0.0,0.0,len);
-		glEnd();
-		//  Label axes
-		glRasterPos3d(len,0.0,0.0);
-		Print("X");
-		glRasterPos3d(0.0,len,0.0);
-		Print("Y");
-		glRasterPos3d(0.0,0.0,len);
-		Print("Z");
-	}
+	
 	Project(fov,asp,dim);
 	//  Render the scene and make it visible
 	ErrCheck("display");
@@ -801,7 +744,6 @@ void ShadowMap(void)
 	Lpos[1] = ylight;
 	Lpos[2] = 0;
 	Lpos[3] = 1;
-	printf("create shadow map\n");
 
 	//  Save transforms and modes
 	glPushMatrix();
