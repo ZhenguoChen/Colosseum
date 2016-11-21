@@ -36,7 +36,7 @@ int move=1;       //  Move light
 int d=20;
 int th=-55;         //  Azimuth of view angle
 int ph=15;         //  Elevation of view angle
-int fov=55;       //  Field of view (for perspective)
+int fov=60;       //  Field of view (for perspective)
 int light=1;      //  Lighting
 double asp=1;     //  Aspect ratio
 double dim=3.0;   //  Size of world
@@ -54,7 +54,7 @@ float shiny   =   1;  // Shininess (value)
 float EXP     =   0;
 int inf=1;
 int zh        =  90;  // Light azimuth
-float ylight  =   2.0;  // Elevation of light
+float ylight  =   7.5;  // Elevation of light
 //texture
 unsigned int texture[4];
 unsigned int sky[2];
@@ -76,6 +76,7 @@ extern double P_Dir_y;
 extern double P_Dir_z;
 
 // Do shadow mappiing
+float  Lpos[4];	//light position
 unsigned int framebuf=0;
 double Svec[4];
 double Tvec[4];
@@ -84,6 +85,9 @@ double Qvec[4];
 int    Width;	//window width
 int    Height;	//window height
 int shadowdim;	//size of shadow map texture
+int shader;	//shader
+int createshadow=1;
+int shadow=1;
 
 //mode=1, you can see the whole scene from different angle
 //mode=0, what from the first person navigation perspective, but the scene is small
@@ -125,7 +129,7 @@ static void Sky(double D)
                 glTexCoord2f(0.25*mul*(i+0),2/9.0*mul*(j+1)+0.43); glVertex3f(-D+2*D*mul*(i+0),Sin(-5)+D*mul*(j+1)*2/3,-D);
         }
 
-        glNormal3d(1, 0, 0);
+        glNormal3d(-1, 0, 0);
         for(i=0; i<num; i++)
                 for(j=0; j<num; j++){
                 glTexCoord2f(0.25*mul*(i+0)+0.25,2/9.0*mul*(j+0)+0.43); glVertex3f(+D,Sin(-5)+D*mul*(j+0)*2/3,-D+2*D*mul*(i+0));
@@ -143,7 +147,7 @@ static void Sky(double D)
                 glTexCoord2f(0.25*mul*(i+0)+0.50,2/9.0*mul*(j+1)+0.43); glVertex3f(+D-2*D*mul*(i+0),Sin(-5)+D*mul*(j+1)*2/3,+D);
         }
 
-        glNormal3d(-1, 0, 0);
+        glNormal3d(1, 0, 0);
         for(i=0; i<num; i++)
                 for(j=0; j<num; j++){
                 glTexCoord2f(0.25*mul*(i+0)+0.75,2/9.0*mul*(j+0)+0.43); glVertex3f(-D,Sin(-5)+D*mul*(j+0)*2/3,+D-2*D*mul*(i+0));
@@ -199,37 +203,35 @@ static void Vertex(double th,double ph)
  *     at (x,y,z)
  *     radius (r)
  */
-/*
 static void ball(double x,double y,double z,double r)
 {
-	int th,ph;
-	float yellow[] = {1.0,1.0,0.0,1.0};
-	float Emission[]  = {0.0,0.0,0.01*emission,1.0};
-	//  Save transformation
-	glPushMatrix();
-	//  Offset, scale and rotate
-	glTranslated(x,y,z);
-	glScaled(r,r,r);
-	//  White ball
-	glColor3f(1,1,1);
-	glMaterialf(GL_FRONT,GL_SHININESS,shiny);
-	glMaterialfv(GL_FRONT,GL_SPECULAR,yellow);
-	glMaterialfv(GL_FRONT,GL_EMISSION,Emission);
-	//  Bands of latitude
-	for (ph=-90;ph<90;ph+=inc)
-	{
-		glBegin(GL_QUAD_STRIP);
-		for (th=0;th<=360;th+=2*inc)
-		{
-			Vertex(th,ph);
-			Vertex(th,ph+inc);
-		}
-		glEnd();
-	}
-	//  Undo transofrmations
-	glPopMatrix();
+   int th,ph;
+   float yellow[] = {1.0,1.0,0.0,1.0};
+   float Emission[]  = {0.0,0.0,0.01*emission,1.0};
+   //  Save transformation
+   glPushMatrix();
+   //  Offset, scale and rotate
+   glTranslated(x,y,z);
+   glScaled(r,r,r);
+   //  White ball
+   glColor3f(1,1,1);
+   glMaterialf(GL_FRONT,GL_SHININESS,shiny);
+   glMaterialfv(GL_FRONT,GL_SPECULAR,yellow);
+   glMaterialfv(GL_FRONT,GL_EMISSION,Emission);
+   //  Bands of latitude
+   for (ph=-90;ph<90;ph+=inc)
+   {
+      glBegin(GL_QUAD_STRIP);
+      for (th=0;th<=360;th+=2*inc)
+      {
+         Vertex(th,ph);
+         Vertex(th,ph+inc);
+      }
+      glEnd();
+   }
+   //  Undo transofrmations
+   glPopMatrix();
 }
-*/
 
 /*
  * draw the ground
@@ -284,7 +286,7 @@ static void Ground(double x,double y,double z,
 
    	//side ground
 	ph=-5;
-	glColor3f(205/255.0, 170/255.0, 125/255.0);
+	//glColor3f(205/255.0, 170/255.0, 125/255.0);
    	glBegin(GL_QUAD_STRIP);
 	for (th=0;th<=360;th+=d)
 	{
@@ -297,21 +299,6 @@ static void Ground(double x,double y,double z,
 	//  End
    	glEnd();
 
-	/*
-	//buttom ground
-	glColor3f(0.5,0.5,0);
-	glNormal3d(0, -1, 0);
-	glBegin(GL_TRIANGLE_FAN);
-	glTexCoord2f(0.5, 0.5); glVertex3f(0, Sin(ph), 0);
-	//Vertex(0,0);
-	for (th=0;th<=360;th+=d)
-	{
-		glTexCoord2f(rep/2*Cos(th)+0.5, rep/2*Sin(th)+0.5);
-		glVertex3f(Sin(th)*Cos(ph), Sin(ph), Cos(th)*Cos(ph));
-		//Vertex(th, ph);
-	}
-	glEnd();
-	*/
    	//  Undo transformations
    	glPopMatrix();
 	glDisable(GL_TEXTURE_2D);
@@ -355,20 +342,12 @@ static void Floor(double x,double y,double z,
                         glVertex3d((i+1)*Sin(th)/num, h, (i+1)*Cos(th)/num);
                 }
         }
-	/*
-	for (th=0;th<=360;th+=d)
-	{
-		glTexCoord2f(th%(2*d)?0.0: rep, 0.0);	
-		glVertex3d(Sin(th), h, Cos(th));
-		glTexCoord2f(th%(2*d)?0.0: rep, rep);
-		glVertex3d(width*Sin(th), h, width*Cos(th));
-	}
-	*/
+
 	glEnd();
 
    	//side floor
 	//glColor3f(184/255.0, 134/255.0, 11/255.0);
-	glColor3f(205/255.0, 170/255.0, 125/255.0);
+	//glColor3f(205/255.0, 170/255.0, 125/255.0);
    	glBegin(GL_QUAD_STRIP);
 	for (th=0;th<=360;th+=d)
 	{
@@ -383,7 +362,7 @@ static void Floor(double x,double y,double z,
 
 	//inner side floor
 	//glColor3f(184/255.0, 134/255.0, 11/255.0);
-	glColor3f(205/255.0, 170/255.0, 125/255.0);
+	//glColor3f(205/255.0, 170/255.0, 125/255.0);
    	glBegin(GL_QUAD_STRIP);
 	for (th=0;th<=360;th+=d)
 	{
@@ -409,13 +388,7 @@ static void Floor(double x,double y,double z,
                         glVertex3d((i+1)*Sin(th)/num, 0, (i+1)*Cos(th)/num);
                 }
         }
-	/*
-	for (th=0;th<=360;th+=d)
-	{
-		glVertex3d(Sin(th), 0, Cos(th));
-		glVertex3d(width*Sin(th), 0, width*Cos(th));
-	}
-	*/
+
 	glEnd();
    	//  Undo transformations
    	glPopMatrix();
@@ -461,11 +434,12 @@ static void Pillar(double x,double y,double z,
 	glEnable(GL_TEXTURE_2D);
 	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	glBindTexture(GL_TEXTURE_2D, texture[0]);
-   	//  Cube
+   	
+	glColor3f(205/255.0, 201/255.0, 201/255.0);
+	glNormal3f(0, 0, 1);
    	glBegin(GL_QUADS);
    	//  Front
-   	glColor3f(205/255.0, 201/255.0, 201/255.0);
-	glNormal3f(0, 0, 1);
+   	
 	for(i=0; i<num; i++)
 		for(j=0, k=0; j<num; j++, k+=4){
    		glTexCoord2f(mul*(i+0),mul*(k+0)); 
@@ -491,14 +465,9 @@ static void Pillar(double x,double y,double z,
                 glTexCoord2f(mul*(i+0),mul*(k+4)); 
                 glVertex3f(width-2*width*mul*(i+0), length*mul*(j+1), -width);
         }
-	/*
-   	glTexCoord2f(0,0); glVertex3f(+width, 0,-width);
-   	glTexCoord2f(1,0); glVertex3f(-width, 0,-width);
-   	glTexCoord2f(1,4); glVertex3f(-width,+length,-width);
-   	glTexCoord2f(0,4); glVertex3f(+width,+length,-width);
-	*/
+
    	//  Right
-   	glColor3f(139/255.0, 115/255.0, 85/255.0);
+   	glColor3f(205/255.0, 201/255.0, 201/255.0);
 	glNormal3f(+1, 0, 0);
 	for(i=0; i<num; i++)
                 for(j=0, k=0; j<num; j++, k+=4){
@@ -511,14 +480,9 @@ static void Pillar(double x,double y,double z,
                 glTexCoord2f(mul*(i+0),mul*(k+4)); 
                 glVertex3f(width, length*mul*(j+1), width-2*width*mul*(i+0));
         }
-	/*
-   	glTexCoord2f(0,0); glVertex3f(+width, 0,+width);
-   	glTexCoord2f(1,0); glVertex3f(+width, 0,-width);
-   	glTexCoord2f(1,4); glVertex3f(+width,+length,-width);
-   	glTexCoord2f(0,4); glVertex3f(+width,+length,+width);
-	*/
+
    	//  Left
-   	glColor3f(139/255.0, 115/255.0, 85/255.0);
+   	glColor3f(205/255.0, 201/255.0, 201/255.0);
 	glNormal3f(-1, 0, 0);
 	for(i=0; i<num; i++)
                 for(j=0, k=0; j<num; j++, k+=4){
@@ -531,28 +495,7 @@ static void Pillar(double x,double y,double z,
                 glTexCoord2f(mul*(i+0),mul*(k+4));
                 glVertex3f(-width, length*mul*(j+1), -width+2*width*mul*(i+0));
         }
-	/*
-   	glTexCoord2f(0,0); glVertex3f(-width, 0,-width);
-   	glTexCoord2f(1,0); glVertex3f(-width, 0,+width);
-   	glTexCoord2f(1,4); glVertex3f(-width,+length,+width);
-   	glTexCoord2f(0,4); glVertex3f(-width,+length,-width);
-	*/
-   	//  Top
-	/*
-   	glColor3f(0,1,1);
-	glNormal3f( 0,+1, 0);
-   	glVertex3f(-width,+length,+width);
-   	glVertex3f(+width,+length,+width);
-   	glVertex3f(+width,+length,-width);
-   	glVertex3f(-width,+length,-width);
-   	//  Bottom
-   	glColor3f(1,0,1);
-	glNormal3f( 0,-1, 0);
-	glVertex3f(-width, 0,-width);
-      	glVertex3f(+width, 0,-width);
-      	glVertex3f(+width, 0,+width);
-      	glVertex3f(-width, 0,+width);
-	*/
+
    	//  End
    	glEnd();
 	glDisable(GL_TEXTURE_2D);
@@ -582,12 +525,6 @@ void DrawFlash(double d){
 	glTexCoord2f(1,1); glVertex3f(+d*Sin(flashposition),+6,+d*Cos(flashposition));
 	glTexCoord2f(0,1); glVertex3f(-d*Sin(flashposition),+6,-d*Cos(flashposition));
 	
-	/*int th=-55;
-	glTexCoord2f(0,0); glVertex3f(2*dim*Sin(th)-w*Cos(th),+0.5, 2*dim*Cos(th)+w*Sin(th));
-        glTexCoord2f(1,0); glVertex3f(2*dim*Sin(th)+w*Cos(th),+0.5, 2*dim*Cos(th)-w*Sin(th));
-        glTexCoord2f(1,1); glVertex3f(2*dim*Sin(th)+w*Cos(th),+4  , 2*dim*Cos(th)-w*Sin(th));
-        glTexCoord2f(0,1); glVertex3f(2*dim*Sin(th)-w*Cos(th),+4  , 2*dim*Cos(th)+w*Sin(th));
-	*/
 	glEnd();
 	glDisable(GL_BLEND);
 	glDepthMask(1);
@@ -634,14 +571,17 @@ static void Colosseum()
 	//draw third floor
 	Floor(0, 0.8, 0, 1.5, 0.7, 0.05, 122/255.0, 122/255.0, 122/255.0);
 	//top
-	Floor(0, 1.2, 0, 1.5, 0.9, 0.05, 171/255.0, 171/255.0, 171/255.0);
+	Floor(0, 1.2, 0, 1.5, 0.9, 0.05, 122/255.0, 122/255.0, 122/255.0);
 
 	//draw fence
 	Fence(0, 0, 0, 0.5, 0.9, 0.05, 0.4, 0.3, 1.0);
 
-	//draw flash
-	if(showflash==1)
-		DrawFlash(5);	
+	//draw flash, when create shadow, do not display this
+	if(showflash==1&&mode==0){
+		glUseProgram(0);
+		DrawFlash(5);
+		glUseProgram(shader);
+	}
 }
 
 /*
@@ -687,10 +627,6 @@ static void Colosseum_FPN()
 
         //draw fence
         Fence(0, 0, 0, 1.0, 0.9, 0.05, 0.4, 0.3, 1.0);
-
-        //draw flash
-        if(showflash==1&&mode!=2)
-                DrawFlash(5);
 }
 
 /*
@@ -698,6 +634,7 @@ static void Colosseum_FPN()
  */
 void display()
 {
+	int id;
 	const double len=2.0;  //  Length of axes
 	//  Erase the window and the depth buffer
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
@@ -705,7 +642,8 @@ void display()
 	glEnable(GL_DEPTH_TEST);
 
 	//  Undo previous transformations
-	glLoadIdentity();
+	glLoadIdentity();	
+
 	//  Perspective - set eye position
 	if(mode==1){
 		double Ex = -2*dim*Sin(th)*Cos(ph);
@@ -716,6 +654,25 @@ void display()
 	}
 	else{
 		InitFPN();
+	}
+	
+	/*
+	 * start drawing shadow
+	 */
+	if (showflash==1&&shadow){
+		glUseProgram(shader);
+		id=glGetUniformLocation(shader, "tex");
+		if(id>=0)glUniform1i(id,0);
+		id=glGetUniformLocation(shader, "depth");
+		if(id>=0)glUniform1i(id,1);
+
+		glActiveTexture(GL_TEXTURE1);
+		glTexGendv(GL_S, GL_EYE_PLANE, Svec);
+		glTexGendv(GL_T, GL_EYE_PLANE, Tvec);
+		glTexGendv(GL_R, GL_EYE_PLANE, Rvec);
+		glTexGendv(GL_Q, GL_EYE_PLANE, Qvec);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
+		glActiveTexture(GL_TEXTURE0);
 	}
 
 	//  Flat or smooth shading
@@ -792,12 +749,15 @@ void display()
 	}
 	//draw the sky box
 	Sky(5*dim);
+	ball(Lpos[0], Lpos[1], Lpos[2], 0.01);
 	//  Draw scene
 	if(mode==2)
 		Colosseum_FPN();
 	else
 		Colosseum();
 
+	if(showflash==1&&shadow)
+		glUseProgram(0);
 	//  Draw axes - no lighting from here on
 	glDisable(GL_LIGHTING);
 	glDisable(GL_FOG);
@@ -820,12 +780,261 @@ void display()
 		glRasterPos3d(0.0,0.0,len);
 		Print("Z");
 	}
-
+	Project(fov,asp,dim);
 	//  Render the scene and make it visible
 	ErrCheck("display");
 	glFlush();
 	SDL_GL_SwapBuffers();
 }
+
+/*
+ *  Build Shadow Map
+ */
+void ShadowMap(void)
+{
+	double Lmodel[16];  //  Light modelview matrix
+	double Lproj[16];   //  Light projection matrix
+	double Tproj[16];   //  Texture projection matrix
+	double Dim=2.0;     //  Bounding radius of scene
+	double Ldist;       //  Distance from light to scene center
+	Lpos[0] = 2;
+	Lpos[1] = ylight;
+	Lpos[2] = 0;
+	Lpos[3] = 1;
+	printf("create shadow map\n");
+
+	//  Save transforms and modes
+	glPushMatrix();
+	glPushAttrib(GL_TRANSFORM_BIT|GL_ENABLE_BIT);
+	//  No write to color buffer and no smoothing
+	glShadeModel(GL_FLAT);
+	glColorMask(0,0,0,0);
+	// Overcome imprecision
+	glEnable(GL_POLYGON_OFFSET_FILL);
+
+	//  Turn off lighting and set light position
+	glDisable(GL_LIGHTING);
+	glDisable(GL_COLOR_MATERIAL);
+	glDisable(GL_NORMALIZE);
+
+	//  Light distance
+	Ldist = sqrt(Lpos[0]*Lpos[0] + Lpos[1]*Lpos[1] + Lpos[2]*Lpos[2]);
+	if (Ldist<1.1*Dim) Ldist = 1.1*Dim;
+
+	//  Set perspective view from light position
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(114.6*atan(Dim/Ldist),1,Ldist-Dim,Ldist+Dim);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	gluLookAt(Lpos[0],Lpos[1],Lpos[2] , 0,0,0 , 0,1,0);
+	//  Size viewport to desired dimensions
+	glViewport(0,0,shadowdim,shadowdim);
+
+	// Redirect traffic to the frame buffer
+	glBindFramebuffer(GL_FRAMEBUFFER,framebuf);
+
+	// Clear the depth buffer
+	glClear(GL_DEPTH_BUFFER_BIT);
+	// Draw all objects that can cast a shadow
+	Colosseum();
+
+	//  Retrieve light projection and modelview matrices
+	glGetDoublev(GL_PROJECTION_MATRIX,Lproj);
+	glGetDoublev(GL_MODELVIEW_MATRIX,Lmodel);
+
+	// Set up texture matrix for shadow map projection,
+	// which will be rolled into the eye linear
+	// texture coordinate generation plane equations
+	glLoadIdentity();
+	glTranslated(0.5,0.5,0.5);
+	glScaled(0.5,0.5,0.5);
+	glMultMatrixd(Lproj);
+	glMultMatrixd(Lmodel);
+
+	// Retrieve result and transpose to get the s, t, r, and q rows for plane equations
+	glGetDoublev(GL_MODELVIEW_MATRIX,Tproj);
+	Svec[0] = Tproj[0];    Tvec[0] = Tproj[1];    Rvec[0] = Tproj[2];    Qvec[0] = Tproj[3];
+	Svec[1] = Tproj[4];    Tvec[1] = Tproj[5];    Rvec[1] = Tproj[6];    Qvec[1] = Tproj[7];
+	Svec[2] = Tproj[8];    Tvec[2] = Tproj[9];    Rvec[2] = Tproj[10];   Qvec[2] = Tproj[11];
+	Svec[3] = Tproj[12];   Tvec[3] = Tproj[13];   Rvec[3] = Tproj[14];   Qvec[3] = Tproj[15];
+
+	// Restore normal drawing state
+	glShadeModel(GL_SMOOTH);
+	glColorMask(1,1,1,1);
+	glDisable(GL_POLYGON_OFFSET_FILL);
+	glPopAttrib();
+	glPopMatrix();
+	glBindFramebuffer(GL_FRAMEBUFFER,0);
+
+	//  Check if something went wrong
+	ErrCheck("ShadowMap");
+}
+
+void InitMap()
+{
+	unsigned int shadowtex; //  Shadow buffer texture id
+	int n;
+
+	//  Make sure multi-textures are supported
+	glGetIntegerv(GL_MAX_TEXTURE_UNITS,&n);
+	if (n<2) Fatal("Multiple textures not supported\n");
+
+	//  Get maximum texture buffer size
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE,&shadowdim);
+	//  Limit texture size to maximum buffer size
+	glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE,&n);
+	if (shadowdim>n) shadowdim = n;
+	//  Limit texture size to 2048 for performance
+	if (shadowdim>2048) shadowdim = 2048;
+	if (shadowdim<512) Fatal("Shadow map dimensions too small %d\n",shadowdim);
+
+	//  Do Shadow textures in MultiTexture 1
+	glActiveTexture(GL_TEXTURE1);
+
+	//  Allocate and bind shadow texture
+	glGenTextures(1,&shadowtex);
+	glBindTexture(GL_TEXTURE_2D,shadowtex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, shadowdim, shadowdim, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+	//  Map single depth value to RGBA (this is called intensity)
+	glTexParameteri(GL_TEXTURE_2D,GL_DEPTH_TEXTURE_MODE,GL_INTENSITY);
+
+	//  Set texture mapping to clamp and linear interpolation
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+
+	//  Set automatic texture generation mode to Eye Linear
+	glTexGeni(GL_S,GL_TEXTURE_GEN_MODE,GL_EYE_LINEAR);
+	glTexGeni(GL_T,GL_TEXTURE_GEN_MODE,GL_EYE_LINEAR);
+	glTexGeni(GL_R,GL_TEXTURE_GEN_MODE,GL_EYE_LINEAR);
+	glTexGeni(GL_Q,GL_TEXTURE_GEN_MODE,GL_EYE_LINEAR);
+
+	// Switch back to default textures
+	glActiveTexture(GL_TEXTURE0);
+
+	// Attach shadow texture to frame buffer
+	glGenFramebuffers(1,&framebuf);
+	glBindFramebuffer(GL_FRAMEBUFFER,framebuf);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowtex, 0);
+	//  Don't write or read to visible color buffer
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	//  Make sure this all worked
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) Fatal("Error setting up frame buffer\n");
+	glBindFramebuffer(GL_FRAMEBUFFER,0);
+
+	//  Check if something went wrong
+	ErrCheck("InitMap");
+
+	//  Create shadow map
+	ShadowMap();
+}
+
+//
+//  Read text file
+//
+static char* ReadText(const char *file)
+{
+	int   n;
+	char* buffer;
+	//  Open file
+	FILE* f = fopen(file,"rt");
+	if (!f) Fatal("Cannot open text file %s\n",file);
+	//  Seek to end to determine size, then rewind
+	fseek(f,0,SEEK_END);
+	n = ftell(f);
+	rewind(f);
+	//  Allocate memory for the whole file
+	buffer = (char*)malloc(n+1);
+	if (!buffer) Fatal("Cannot allocate %d bytes for text file %s\n",n+1,file);
+	//  Snarf the file
+	if (fread(buffer,n,1,f)!=1) Fatal("Cannot read %d bytes for text file %s\n",n,file);
+	buffer[n] = 0;
+	//  Close and return
+	fclose(f);
+	return buffer;
+}
+
+//
+//  Print Shader Log
+//
+static void PrintShaderLog(int obj,const char* file)
+{
+	int len=0;
+	glGetShaderiv(obj,GL_INFO_LOG_LENGTH,&len);
+	if (len>1)
+	{
+	int n=0;
+	char* buffer = (char *)malloc(len);
+	if (!buffer) Fatal("Cannot allocate %d bytes of text for shader log\n",len);
+	glGetShaderInfoLog(obj,len,&n,buffer);
+	fprintf(stderr,"%s:\n%s\n",file,buffer);
+	free(buffer);
+	}
+	glGetShaderiv(obj,GL_COMPILE_STATUS,&len);
+	if (!len) Fatal("Error compiling %s\n",file);
+}
+
+//
+//  Print Program Log
+//
+void PrintProgramLog(int obj)
+{
+	int len=0;
+	glGetProgramiv(obj,GL_INFO_LOG_LENGTH,&len);
+	if (len>1)
+	{
+	int n=0;
+	char* buffer = (char *)malloc(len);
+	if (!buffer) Fatal("Cannot allocate %d bytes of text for program log\n",len);
+	glGetProgramInfoLog(obj,len,&n,buffer);
+	fprintf(stderr,"%s\n",buffer);
+	}
+	glGetProgramiv(obj,GL_LINK_STATUS,&len);
+	if (!len) Fatal("Error linking program\n");
+}
+
+//
+//  Create Shader
+//
+void CreateShader(int prog,const GLenum type,const char* file)
+{
+	//  Create the shader
+	int shader = glCreateShader(type);
+	//  Load source code from file
+	char* source = ReadText(file);
+	glShaderSource(shader,1,(const char**)&source,NULL);
+	free(source);
+	//  Compile the shader
+	glCompileShader(shader);
+	//  Check for errors
+	PrintShaderLog(shader,file);
+	//  Attach to shader program
+	glAttachShader(prog,shader);
+}
+
+//
+//  Create Shader Program
+//
+int CreateShaderProg(const char* VertFile,const char* FragFile)
+{
+	//  Create program
+	int prog = glCreateProgram();
+	//  Create and compile vertex shader
+	if (VertFile) CreateShader(prog,GL_VERTEX_SHADER,VertFile);
+	//  Create and compile fragment shader
+	if (FragFile) CreateShader(prog,GL_FRAGMENT_SHADER,FragFile);
+	//  Link program
+	glLinkProgram(prog);
+	//  Check for errors
+	PrintProgramLog(prog);
+	//  Return name
+	return prog;
+}
+
 /*
  *  GLUT calls this routine when a key is pressed
  */
@@ -841,7 +1050,13 @@ int key()
 		th = ph = 0;
 	//  Toggle axes
 	else if (keys[SDLK_x])
-		axes = 1-axes;
+		shadow=1-shadow;
+	else if (keys[SDLK_y]){
+		ylight+=0.5;
+		//InitMap();
+	}
+	else if (keys[SDLK_z])
+		Lpos[2]+=0.5;
 	//  Toggle lighting
 	else if (keys[SDLK_l])
 		light = 1-light;
@@ -954,6 +1169,15 @@ int main(int argc,char* argv[])
 	sky[1]=LoadTexBMP("sky1.bmp");
 	flash[0]=LoadTexBMP("flash3.bmp");
 	
+	//enable Z-buffer
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
+	glPolygonOffset(4,0);
+	shader=CreateShaderProg("shadow.vert", "shadow.frag");
+	InitMap();
+	//ShadowMap();
+	reshape(screen->w, screen->h);
+	
 	//Initialize audio
 	if (Mix_OpenAudio(44100, AUDIO_S16SYS, 2, 4096)) Fatal("cannot initialize audio\n");
 	music= Mix_LoadMUS("thunder.mp3");
@@ -969,6 +1193,7 @@ int main(int argc,char* argv[])
 
 	while(run)
 	{
+		
 		//elaspsed time in seconds
 		double t=SDL_GetTicks()/1000.0;
 		//Process all pending events
