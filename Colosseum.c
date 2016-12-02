@@ -27,8 +27,10 @@
  * 3. You can move the flashlight.
  * 4. The sky box can be light up with flashlight.
  */
-#include<SDL/SDL.h>
-#include<SDL/SDL_mixer.h>
+#include <stdbool.h>
+#include <SDL/SDL.h>
+#include <SDL/SDL_mixer.h>
+#include <SDL/SDL_image.h>
 #include "CSCIx229.h"
 
 int axes=1;       //  Display axes
@@ -56,8 +58,8 @@ int inf=1;
 int zh        =  90;  // Light azimuth
 float ylight  =   7.5;  // Elevation of light
 //texture
-unsigned int texture[4];
-unsigned int sky[2];
+unsigned int texture[3];
+unsigned int sky[1];
 unsigned int flash[1];	//the texture of flash
 int showflash=0;	//show flash or not
 int flashposition=35;
@@ -74,6 +76,7 @@ extern double P_z;
 extern double P_Dir_x;
 extern double P_Dir_y;
 extern double P_Dir_z;
+extern int collision;
 
 // Do shadow mappiing
 float  Lpos[4];	//light position
@@ -94,6 +97,7 @@ int shadow=0;
 //mode=2, draw a bigger Colosseum for first person navigation
 int mode=0;
 
+int obj;	//colosseum obj
 /* 
  *  Draw sky box
  */
@@ -714,10 +718,24 @@ void display()
 	if(mode==2)
 		Colosseum_FPN();
 	else
+	{
+		/*
+		glPushMatrix();
+		glTranslated(P_x, P_y, P_z);
+		glScaled(0.1, 0.1, 0.1);
+		glCallList(obj);
+		glPopMatrix();
+		*/
 		Colosseum();
+	}
 
 	if(showflash==1&&shadow==1)
 		glUseProgram(0);
+
+	if(collision==1){
+		glWindowPos2i(5,5);
+   		Print("Be careful! Do not hit the wall\n");
+	}
 
 	glDisable(GL_LIGHTING);
 	glDisable(GL_FOG);
@@ -1106,10 +1124,11 @@ int main(int argc,char* argv[])
 	texture[0]=LoadTexBMP("wall.bmp");
 	texture[1]=LoadTexBMP("stone3.bmp");
 	texture[2]=LoadTexBMP("brickSingle2.bmp");
-	texture[3]=LoadTexBMP("skybox.bmp");
 	sky[0]=LoadTexBMP("skybox2.bmp");
-	sky[1]=LoadTexBMP("sky1.bmp");
 	flash[0]=LoadTexBMP("flash3.bmp");
+	
+	//load obj
+	obj=LoadOBJ("hand_light.obj");
 	
 	//enable Z-buffer
 	glEnable(GL_DEPTH_TEST);
