@@ -33,8 +33,8 @@ void ErrCheck(const char* where);
 int  LoadOBJ(const char* file);
 
 //first person navigation
-void FPN_Forward();
-void FPN_Backward();
+int FPN_Forward();
+int FPN_Backward();
 void FPN_Refresh();
 void FPN_Left();
 void FPN_Right();
