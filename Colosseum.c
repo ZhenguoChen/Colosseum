@@ -1128,7 +1128,7 @@ int main(int argc,char* argv[])
 	flash[0]=LoadTexBMP("flash3.bmp");
 	
 	//load obj
-	obj=LoadOBJ("hand_light.obj");
+	//obj=LoadOBJ("hand_light.obj");
 	
 	//enable Z-buffer
 	glEnable(GL_DEPTH_TEST);
@@ -1191,13 +1191,13 @@ int main(int argc,char* argv[])
 			lasttime=t;
 			flashposition=(flashposition-30)%360;
 		}
-		if(t>20.0&&density<0.1){
+		if(t>30.0&&density<0.1){
 			showfog=1;
 			density+=0.001;
 		}
-		if(t>30&&density==0.02)
+		if(t>40&&density==0.02)
 			density+=0.001;
-		if(t>40&&density==0.03)
+		if(t>50&&density==0.03)
 			density+=0.001;
 		//display
 		display();
